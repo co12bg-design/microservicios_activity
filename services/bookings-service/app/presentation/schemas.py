@@ -13,7 +13,6 @@ class CreateBookingRequest(BaseModel):
     start_date: date
     end_date: date
     payment_method: PaymentMethod
-    total_amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
 
     @model_validator(mode="after")
     def dates_must_be_in_order(self) -> "CreateBookingRequest":
@@ -32,5 +31,7 @@ class BookingResponse(BaseModel):
     end_date: date
     payment_method: PaymentMethod
     total_amount: Decimal
+    currency: str
+    payment_id: UUID | None
     status: BookingStatus
     created_at: datetime

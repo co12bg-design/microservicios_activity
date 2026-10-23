@@ -14,22 +14,21 @@ flowchart LR
     Client -->|HTTP| Users
     Client -->|HTTP| Resources
     Client -->|HTTP| Bookings
-    Bookings -->|HTTP: verificar usuario registrado| Users
-    Bookings -->|consulta HTTP: habitación disponible| Resources
-    Bookings -.->|evento BookingCreated| Payments
-    Payments -.->|evento PaymentSucceeded o PaymentFailed| Bookings
-    Bookings -.->|evento BookingUpdated| Notifications
-    Payments -.->|evento PaymentSucceeded| Notifications
+    Bookings -->|HTTP: verificar usuario| Users
+    Bookings -->|HTTP: consultar habitación y precio| Resources
+    Bookings -->|HTTP: solicitar pago| Payments
+    Payments -->|resultado del pago| Bookings
+    Bookings -->|HTTP: registrar avisos| Notifications
 ```
 
-**Cómo leerlo:** las flechas continuas representan una petición que espera respuesta. Las punteadas representan un aviso que puede procesarse después. El diagrama muestra el diseño objetivo; en esta entrega solo están implementados `users-service` y `bookings-service`, y sus datos viven en memoria.
+**Cómo leerlo:** las flechas muestran llamadas HTTP entre servicios. En esta práctica los cinco se ejecutan por separado, y algunos llaman a otros durante una reserva. Pagos y avisos son simulados; más adelante los avisos podrían procesarse mediante eventos asíncronos.
 
 ## Decisiones y límites
 
 | Servicio | Es dueño de | No debe hacer |
 |---|---|---|
 | `users-service` | Identidad, perfil, correo, teléfono y contraseña protegida. | Guardar reservas o pagos. |
-| `resources-service` | Habitaciones reservables, hotel, descripción, capacidad, precio y disponibilidad general. | Crear reservas en nombre del servicio de reservas. |
+| `resources-service` | Habitaciones reservables, hotel, descripción, capacidad, precio por noche y si están activas. | Crear reservas en nombre del servicio de reservas. |
 | `bookings-service` | Solicitudes de reserva, habitación, fechas de ingreso/salida, forma de pago elegida, valor acordado, estado y hora de creación; verifica que no se crucen para el mismo recurso. | Ser dueño de los perfiles, habitaciones o transacciones de pago. |
 | `payments-service` | Métodos aceptados, intentos, confirmaciones, fallos y demás operaciones de pago. | Cambiar directamente las fechas o los datos de una habitación. |
 | `notifications-service` | Envío y registro de avisos por correo y SMS. | Decidir si una reserva o un pago son válidos. |
@@ -40,13 +39,13 @@ Cada servicio es responsable de sus propios datos. Los otros servicios guardan i
 
 - El cliente usa HTTP/REST para solicitar operaciones y recibir una respuesta inmediata.
 - `bookings-service` consulta a `users-service` para comprobar que la persona está registrada, y puede consultar a `resources-service` para confirmar que la habitación existe y se puede reservar.
-- La reserva empieza en estado `PENDING`. `payments-service` informa si el pago tuvo éxito o falló; `bookings-service` actualiza el estado de la reserva.
-- Los avisos se prestan a comunicación asíncrona: reservas o pagos publican un evento y notificaciones lo procesa después.
-- Tras un pago exitoso, y ante cada actualización de la reserva, `notifications-service` envía un mensaje por correo y otro por SMS. El contenido incluye el estado y la fecha de llegada (check-in) de la reserva.
-- `notifications-service` obtiene los datos de contacto del perfil por `user_id`; `users-service` sigue siendo dueño del correo y del teléfono.
-- Un evento puede llegar más de una vez. Los consumidores de pagos y notificaciones deberán reconocer duplicados cuando se implemente mensajería real.
+- La reserva empieza en estado `PENDING`. En esta demo, Pagos registra un resultado exitoso simulado y Reservas cambia el estado a `CONFIRMED`.
+- Tras el pago exitoso, Reservas pide a Notificaciones registrar un correo y un SMS. El contenido incluye el estado y la fecha de llegada (check-in).
+- En esta demo las llamadas entre servicios son HTTP para que el flujo sea sencillo de observar. Más adelante, notificaciones podría reaccionar a eventos asíncronos.
+- `bookings-service` obtiene correo y teléfono desde el perfil en `users-service` y los entrega a `notifications-service` para crear los dos avisos.
+- El servicio de pagos evita duplicar cobros simulados para una misma reserva. En una integración real se necesitarían además garantías de idempotencia del proveedor.
 
-En el esqueleto actual, `bookings-service` sí verifica el usuario consultando a `users-service`. La persistencia está en memoria. La consulta de habitación, el procesamiento del pago y el envío de notificaciones están documentados, pero aún no implementados.
+Los cinco servicios están implementados como demos locales. Los datos viven en memoria; los pagos y las notificaciones no salen a proveedores externos.
 
 ## Clean Architecture dentro de cada servicio
 

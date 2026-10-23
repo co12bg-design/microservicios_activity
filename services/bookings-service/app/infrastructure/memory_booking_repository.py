@@ -12,12 +12,15 @@ class MemoryBookingRepository:
     def add(self, booking: Booking) -> None:
         self._bookings[booking.id] = booking
 
+    def update(self, booking: Booking) -> None:
+        self._bookings[booking.id] = booking
+
     def get_by_id(self, booking_id: UUID) -> Booking | None:
         return self._bookings.get(booking_id)
 
     def find_overlapping(self, booking: Booking) -> Booking | None:
         for existing in self._bookings.values():
-            if existing.status == BookingStatus.CANCELLED:
+            if existing.status in (BookingStatus.CANCELLED, BookingStatus.PAYMENT_FAILED):
                 continue
             if booking.overlaps(existing):
                 return existing

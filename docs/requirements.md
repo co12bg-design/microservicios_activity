@@ -32,6 +32,6 @@ Este documento dice **qué debe hacer** la aplicación. El diagrama y los contra
 - La regla de cruce de fechas está descrita y aparece en el código del esqueleto de reservas.
 - El README identifica qué funciona ahora y qué queda diseñado para una siguiente etapa.
 
-## Alcance del esqueleto actual
+## Alcance de la demo actual
 
-El código de esta entrega registra usuarios, protege sus contraseñas con un hash, verifica que el usuario exista y crea reservas en memoria. También impide fechas pasadas, llegadas a más de seis meses y cruces con reservas existentes. El servicio de habitaciones, los pagos reales, los mensajes de correo/SMS y una base de datos persistente están descritos, pero pendientes de implementación.
+Los cinco servicios se ejecutan por separado. Usuarios registra perfiles y protege contraseñas con un hash; habitaciones expone dos habitaciones de demostración; reservas verifica usuario y habitación, valida fechas, evita cruces y calcula el precio; pagos registra un éxito simulado; notificaciones registra los avisos de correo y SMS. Los datos viven en memoria y no se realizan cobros ni envíos reales.

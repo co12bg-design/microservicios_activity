@@ -3,20 +3,29 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, status
 
-from app.application.create_booking import (
-    CreateBooking,
-    OverlappingBookingError,
-    UserNotFoundError,
-)
+from app.application.create_booking import CreateBooking, OverlappingBookingError, RoomNotFoundError, UserNotFoundError
 from app.domain.entities import Booking
 from app.infrastructure.memory_booking_repository import MemoryBookingRepository
-from app.infrastructure.user_service_client import UserServiceClient, UserServiceUnavailableError
+from app.infrastructure.service_clients import (
+    NotificationsServiceClient,
+    PaymentsServiceClient,
+    ResourcesServiceClient,
+    UserServiceClient,
+)
+from app.application.ports import UpstreamServiceError
 from app.presentation.schemas import BookingResponse, CreateBookingRequest
 
 app = FastAPI(title="Bookings Service", version="0.1.0")
 repository = MemoryBookingRepository()
-user_service_url = os.getenv("USERS_SERVICE_URL", "http://127.0.0.1:8001")
-create_booking = CreateBooking(repository, UserServiceClient(user_service_url))
+create_booking = CreateBooking(
+    repository=repository,
+    users=UserServiceClient(os.getenv("USERS_SERVICE_URL", "http://127.0.0.1:8001")),
+    rooms=ResourcesServiceClient(os.getenv("RESOURCES_SERVICE_URL", "http://127.0.0.1:8003")),
+    payments=PaymentsServiceClient(os.getenv("PAYMENTS_SERVICE_URL", "http://127.0.0.1:8004")),
+    notifications=NotificationsServiceClient(
+        os.getenv("NOTIFICATIONS_SERVICE_URL", "http://127.0.0.1:8005")
+    ),
+)
 
 
 @app.post("/bookings", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
@@ -28,16 +37,17 @@ def post_booking(request: CreateBookingRequest) -> Booking:
             start_date=request.start_date,
             end_date=request.end_date,
             payment_method=request.payment_method,
-            total_amount=request.total_amount,
         )
     except OverlappingBookingError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     except UserNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except UserServiceUnavailableError as error:
+    except RoomNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except UpstreamServiceError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No se pudo verificar el usuario. Intenta más tarde.",
+            detail=f"Un servicio necesario no está disponible: {error}",
         ) from error
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
